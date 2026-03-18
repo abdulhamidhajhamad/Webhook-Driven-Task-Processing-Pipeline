@@ -1,0 +1,16 @@
+
+.env
+
+node_modules/
+
+
+dist/
+build/
+
+
+.docker/
+
+
+.vscode/
+.idea/
+*.swp

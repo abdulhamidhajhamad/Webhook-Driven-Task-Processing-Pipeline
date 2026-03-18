@@ -1,0 +1,37 @@
+{
+  "name": "webhookpipeline",
+  "version": "1.0.0",
+  "description": "",
+  "main": "index.js",
+"scripts": {
+  "build": "tsc",
+  "dev": "tsx watch src/api/server.ts",
+  "worker": "tsx watch src/worker/worker.ts",
+  "start": "node dist/api/server.js",
+  "test": "jest"
+},
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/abdulhamidhajhamad/Webhook-Driven-Task-Processing-Pipeline.git"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "type": "commonjs",
+  "bugs": {
+    "url": "https://github.com/abdulhamidhajhamad/Webhook-Driven-Task-Processing-Pipeline/issues"
+  },
+  "homepage": "https://github.com/abdulhamidhajhamad/Webhook-Driven-Task-Processing-Pipeline#readme",
+  "dependencies": {
+    "express": "^5.2.1"
+  },
+  "devDependencies": {
+    "@types/express": "^5.0.6",
+    "@types/node": "^25.5.0",
+    "@types/pg": "^8.18.0",
+    "jest": "^30.3.0",
+    "ts-jest": "^29.4.6",
+    "tsx": "^4.21.0",
+    "typescript": "^5.9.3"
+  }
+}
