@@ -3,13 +3,13 @@
   "version": "1.0.0",
   "description": "",
   "main": "index.js",
-"scripts": {
-  "build": "tsc",
-  "dev": "tsx watch src/api/server.ts",
-  "worker": "tsx watch src/worker/worker.ts",
-  "start": "node dist/api/server.js",
-  "test": "jest"
-},
+  "scripts": {
+    "build": "tsc",
+    "dev": "tsx watch src/api/server.ts",
+    "worker": "tsx watch src/worker/worker.ts",
+    "start": "node dist/api/server.js",
+    "test": "jest"
+  },
   "repository": {
     "type": "git",
     "url": "git+https://github.com/abdulhamidhajhamad/Webhook-Driven-Task-Processing-Pipeline.git"
@@ -23,6 +23,7 @@
   },
   "homepage": "https://github.com/abdulhamidhajhamad/Webhook-Driven-Task-Processing-Pipeline#readme",
   "dependencies": {
+    "dotenv": "^17.3.1",
     "express": "^5.2.1"
   },
   "devDependencies": {
