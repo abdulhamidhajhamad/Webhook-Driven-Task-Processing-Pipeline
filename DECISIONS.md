@@ -17,3 +17,8 @@ All child tables cascade on pipeline deletion to avoid orphaned records without 
 
 ## 6. Indexed Hot Paths
 Added indexes on `jobs.status`, `jobs.pipeline_id`, and `jobs.created_at` since the worker queries these fields constantly.
+
+## 7. Action-level Error Logging
+When a job fails mid-pipeline, the system records which action failed 
+and logs the results of all previously completed actions. This makes 
+debugging in production straightforward without needing external tooling.
