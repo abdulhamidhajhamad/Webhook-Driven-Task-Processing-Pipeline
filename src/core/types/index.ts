@@ -37,6 +37,7 @@ export interface Job {
   failedAtAction: number | null;
   actionsLog: ActionLog[];
   attempts: number;
+  externalDeliveryId: string | null;
   createdAt: Date;
   processedAt: Date | null;
 }

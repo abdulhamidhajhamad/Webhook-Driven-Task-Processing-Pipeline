@@ -4,13 +4,19 @@ import { jobRepository } from '../jobs/job.repository';
 import { verifySignature } from '../../core/utils/crypto';
 import { Job } from '../../core/types';
 
+export interface ProcessWebhookResult {
+  job: Job;
+  isDuplicate: boolean;
+}
+
 export const webhookService = {
   async processWebhook(
     sourceToken: string,
     payload: Record<string, unknown>,
     rawBody: string,
-    signature?: string
-  ): Promise<Job> {
+    signature?: string,
+    externalDeliveryId?: string
+  ): Promise<ProcessWebhookResult> {
     const pipeline = await pipelineRepository.findByToken(sourceToken);
     if (!pipeline) {
       throw new Error('PIPELINE_NOT_FOUND');
@@ -22,7 +28,6 @@ export const webhookService = {
       }
 
       const isValid = verifySignature(rawBody, pipeline.secret, signature);
-
       if (!isValid) {
         throw new Error('INVALID_SIGNATURE');
       }
@@ -33,13 +38,18 @@ export const webhookService = {
     try {
       await client.query('BEGIN');
 
-      const job = await jobRepository.create(
-        { pipelineId: pipeline.id, payload },
+      const { job, isDuplicate } = await jobRepository.create(
+        {
+          pipelineId: pipeline.id,
+          payload,
+          externalDeliveryId,
+        },
         client
       );
 
       await client.query('COMMIT');
-      return job;
+
+      return { job, isDuplicate };
 
     } catch (error) {
       try {

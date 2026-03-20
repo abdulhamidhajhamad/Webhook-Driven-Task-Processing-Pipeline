@@ -47,3 +47,6 @@ Job creation on webhook ingestion is wrapped in a transaction. If the insert fai
 
 ## 16. Rollback Error Isolation
 The `ROLLBACK` call inside the catch block is itself wrapped in a try/catch. A failed rollback should never swallow the original error, and the connection is always released in `finally` regardless of what happens.
+
+## 17. Idempotency via External Delivery IDs
+To prevent double-processing we store the unique id from the event in a UNIQUE column By checking for existence before insertion we ensure a payment event creates exactly one Job even if received multiple times.

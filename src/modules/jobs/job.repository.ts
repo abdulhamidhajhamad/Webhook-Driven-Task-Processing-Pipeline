@@ -8,17 +8,41 @@ type QueryClient = Pool | PoolClient;
 export interface CreateJobDto {
   pipelineId: string;
   payload: Record<string, unknown>;
+  externalDeliveryId?: string;
+}
+
+export interface CreateJobResult {
+  job: Job;
+  isDuplicate: boolean;
 }
 
 export const jobRepository = {
-  async create(data: CreateJobDto, client: QueryClient): Promise<Job> {
+  async create(data: CreateJobDto, client: QueryClient): Promise<CreateJobResult> {
+    if (data.externalDeliveryId) {
+      const existing = await client.query(
+        `SELECT * FROM jobs WHERE external_delivery_id = $1`,
+        [data.externalDeliveryId]
+      );
+
+      if (existing.rows[0]) {
+        return {
+          job: toCamelCase<Job>(existing.rows[0]),
+          isDuplicate: true,
+        };
+      }
+    }
+
     const result = await client.query(
-      `INSERT INTO jobs (pipeline_id, payload)
-       VALUES ($1, $2)
+      `INSERT INTO jobs (pipeline_id, payload, external_delivery_id)
+       VALUES ($1, $2, $3)
        RETURNING *`,
-      [data.pipelineId, data.payload]
+      [data.pipelineId, data.payload, data.externalDeliveryId ?? null]
     );
-    return toCamelCase<Job>(result.rows[0]);
+
+    return {
+      job: toCamelCase<Job>(result.rows[0]),
+      isDuplicate: false,
+    };
   },
 
   async findById(id: string): Promise<Job | null> {
@@ -74,9 +98,9 @@ export const jobRepository = {
   ): Promise<void> {
     await db.query(
       `UPDATE jobs
-       SET status      = 'completed',
-           result      = $1,
-           actions_log = $2,
+       SET status       = 'completed',
+           result       = $1,
+           actions_log  = $2,
            processed_at = NOW()
        WHERE id = $3`,
       [result, JSON.stringify(actionsLog), id]
