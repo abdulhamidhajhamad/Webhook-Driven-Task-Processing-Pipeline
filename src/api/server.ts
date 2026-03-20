@@ -2,6 +2,7 @@ import express from 'express';
 import { config } from '../core/config';
 import { runMigrations } from '../core/db';
 import { pipelineRoutes } from './routes/pipeline.routes';
+import { webhookRoutes } from './routes/webhook.routes';
 
 const app = express();
 app.use(express.json());
@@ -11,6 +12,7 @@ app.get('/health', (req, res) => {
 });
 
 app.use('/pipelines', pipelineRoutes);
+app.use('/webhooks', webhookRoutes);
 
 async function start(): Promise<void> {
   try {
