@@ -59,16 +59,21 @@ export const pipelineService = {
 
   async updatePipeline(
     id: string,
-    data: Partial<Pick<Pipeline, 'name' | 'secret' | 'is_active'>>
+    data: Partial<Pick<Pipeline, 'name' | 'secret' | 'isActive'>>
   ): Promise<Pipeline> {
     const exists = await pipelineRepository.findById(id);
     if (!exists) throw new Error('Pipeline not found');
-    return (await pipelineRepository.update(id, data))!;
+
+    const updated = await pipelineRepository.update(id, data,db);
+    if (!updated) throw new Error('Pipeline not found');
+
+    return updated;
   },
 
   async deletePipeline(id: string): Promise<void> {
     const exists = await pipelineRepository.findById(id);
     if (!exists) throw new Error('Pipeline not found');
-    await pipelineRepository.delete(id);
+
+    await pipelineRepository.delete(id, db);
   },
 };

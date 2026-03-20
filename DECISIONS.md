@@ -32,3 +32,12 @@ back together, preventing partial/broken pipelines in the database.
 Repository methods accept an optional QueryClient parameter (Pool | PoolClient).
 This allows the service layer to pass a transaction client without the repository
 knowing about transaction logic, keeping each layer in its own responsibility.
+
+## 10. Soft Delete over Hard Delete
+Instead of permanently removing pipelines from the database, we use is_deleted and deleted_at flags.
+
+## 11. camelCase in TypeScript, snake_case in Database
+We follow PostgreSQL's snake_case convention for the database schema (e.g., source_token) and JavaScript's camelCase for TypeScript code (e.g., sourceToken).
+
+## 12. Automatic snake_case to camelCase Conversion
+Manually writing AS "camelCase" for every column in every SQL query is tedious and makes the code hard to read. We implemented a toCamelCase helper function in the Repository layer.
