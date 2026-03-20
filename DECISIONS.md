@@ -19,25 +19,31 @@ All child tables cascade on pipeline deletion to avoid orphaned records without 
 Added indexes on `jobs.status`, `jobs.pipeline_id`, and `jobs.created_at` since the worker queries these fields constantly.
 
 ## 7. Action-level Error Logging
-When a job fails mid-pipeline, the system records which action failed 
-and logs the results of all previously completed actions. This makes 
-debugging in production straightforward without needing external tooling.
+When a job fails mid-pipeline, the system records which action failed and logs the results of all previously completed actions. This makes debugging in production straightforward without needing external tooling.
 
 ## 8. Database Transactions for Pipeline Creation
-Pipeline creation uses a single database transaction (BEGIN/COMMIT/ROLLBACK).
-All inserts (pipeline, actions, subscribers) either succeed together or roll
-back together, preventing partial/broken pipelines in the database.
+Pipeline creation uses a single database transaction (BEGIN/COMMIT/ROLLBACK). All inserts (pipeline, actions, subscribers) either succeed together or roll back together, preventing partial/broken pipelines in the database.
 
 ## 9. Shared Client for Transactions
-Repository methods accept an optional QueryClient parameter (Pool | PoolClient).
-This allows the service layer to pass a transaction client without the repository
-knowing about transaction logic, keeping each layer in its own responsibility.
+Repository methods accept an optional QueryClient parameter (Pool | PoolClient). This allows the service layer to pass a transaction client without the repository knowing about transaction logic, keeping each layer in its own responsibility.
 
 ## 10. Soft Delete over Hard Delete
-Instead of permanently removing pipelines from the database, we use is_deleted and deleted_at flags.
+Instead of permanently removing pipelines, we set `is_deleted = true` and record `deleted_at`. All queries filter by `is_deleted = false`. This preserves job history tied to a pipeline and makes accidental deletions recoverable.
 
 ## 11. camelCase in TypeScript, snake_case in Database
-We follow PostgreSQL's snake_case convention for the database schema (e.g., source_token) and JavaScript's camelCase for TypeScript code (e.g., sourceToken).
+We follow PostgreSQL's snake_case convention for column names and JavaScript's camelCase for TypeScript interfaces. The mapping happens once in the repository layer, so neither the service nor the controller ever sees a snake_case key.
 
 ## 12. Automatic snake_case to camelCase Conversion
-Manually writing AS "camelCase" for every column in every SQL query is tedious and makes the code hard to read. We implemented a toCamelCase helper function in the Repository layer.
+Instead of writing `AS "camelCase"` aliases in every query, we use a `toCamelCase` utility that converts all keys after the query returns. This keeps SQL clean and means adding a new column only requires updating the TypeScript interface.
+
+## 13. Raw Body for Signature Verification
+We capture the raw request body before JSON parsing and use it for HMAC verification. Verifying against `JSON.stringify(payload)` would break for senders like GitHub or Stripe that don't guarantee field order.
+
+## 14. Timing-Safe Signature Comparison
+Signatures are compared with `crypto.timingSafeEqual` after an explicit length check. Without the length check, `timingSafeEqual` throws on mismatched buffer sizes, which would leak timing information to an attacker.
+
+## 15. Webhook Transaction Wrapping
+Job creation on webhook ingestion is wrapped in a transaction. If the insert fails for any reason, nothing is persisted and the caller gets a clean error rather than a ghost record in an inconsistent state.
+
+## 16. Rollback Error Isolation
+The `ROLLBACK` call inside the catch block is itself wrapped in a try/catch. A failed rollback should never swallow the original error, and the connection is always released in `finally` regardless of what happens.
