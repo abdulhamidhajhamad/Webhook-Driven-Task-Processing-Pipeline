@@ -1,4 +1,5 @@
 import { db } from '../../core/db';
+import { Pool, PoolClient } from 'pg';
 import {
   Pipeline,
   PipelineAction,
@@ -7,9 +8,11 @@ import {
   CreatePipelineDto,
 } from '../../core/types';
 
+type QueryClient = Pool | PoolClient;
+
 export const pipelineRepository = {
-  async create(data: CreatePipelineDto): Promise<Pipeline> {
-    const result = await db.query<Pipeline>(
+  async create(data: CreatePipelineDto, client: QueryClient = db): Promise<Pipeline> {
+    const result = await client.query<Pipeline>(
       `INSERT INTO pipelines (name, secret)
        VALUES ($1, $2)
        RETURNING *`,
@@ -20,9 +23,10 @@ export const pipelineRepository = {
 
   async addAction(
     pipelineId: string,
-    action: { action_type: string; action_config: Record<string, unknown>; order_index: number }
+    action: { action_type: string; action_config: Record<string, unknown>; order_index: number },
+    client: QueryClient = db
   ): Promise<PipelineAction> {
-    const result = await db.query<PipelineAction>(
+    const result = await client.query<PipelineAction>(
       `INSERT INTO pipeline_actions (pipeline_id, action_type, action_config, order_index)
        VALUES ($1, $2, $3, $4)
        RETURNING *`,
@@ -31,8 +35,12 @@ export const pipelineRepository = {
     return result.rows[0];
   },
 
-  async addSubscriber(pipelineId: string, url: string): Promise<Subscriber> {
-    const result = await db.query<Subscriber>(
+  async addSubscriber(
+    pipelineId: string,
+    url: string,
+    client: QueryClient = db
+  ): Promise<Subscriber> {
+    const result = await client.query<Subscriber>(
       `INSERT INTO subscribers (pipeline_id, url)
        VALUES ($1, $2)
        RETURNING *`,

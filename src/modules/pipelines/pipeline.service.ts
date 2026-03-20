@@ -1,3 +1,4 @@
+import { db } from '../../core/db';
 import { pipelineRepository } from './pipeline.repository';
 import {
   CreatePipelineDto,
@@ -19,29 +20,36 @@ export const pipelineService = {
       throw new Error('Pipeline must have at least one subscriber');
     }
 
-    const pipeline = await pipelineRepository.create(data);
+    const client = await db.connect();
 
-    await Promise.all(
-      data.actions.map((action) =>
-        pipelineRepository.addAction(pipeline.id, action)
-      )
-    );
+    try {
+      await client.query('BEGIN');
 
-    await Promise.all(
-      data.subscribers.map((url) =>
-        pipelineRepository.addSubscriber(pipeline.id, url)
-      )
-    );
+      const pipeline = await pipelineRepository.create(data, client);
 
-    const result = await pipelineRepository.findWithDetails(pipeline.id);
-    return result!;
+      for (const action of data.actions) {
+        await pipelineRepository.addAction(pipeline.id, action, client);
+      }
+
+      for (const url of data.subscribers) {
+        await pipelineRepository.addSubscriber(pipeline.id, url, client);
+      }
+
+      await client.query('COMMIT');
+
+      return (await pipelineRepository.findWithDetails(pipeline.id))!;
+
+    } catch (error) {
+      await client.query('ROLLBACK');
+      throw error;
+    } finally {
+      client.release();
+    }
   },
 
   async getPipeline(id: string): Promise<PipelineWithDetails> {
     const pipeline = await pipelineRepository.findWithDetails(id);
-    if (!pipeline) {
-      throw new Error('Pipeline not found');
-    }
+    if (!pipeline) throw new Error('Pipeline not found');
     return pipeline;
   },
 
@@ -54,20 +62,13 @@ export const pipelineService = {
     data: Partial<Pick<Pipeline, 'name' | 'secret' | 'is_active'>>
   ): Promise<Pipeline> {
     const exists = await pipelineRepository.findById(id);
-    if (!exists) {
-      throw new Error('Pipeline not found');
-    }
-
-    const updated = await pipelineRepository.update(id, data);
-    return updated!;
+    if (!exists) throw new Error('Pipeline not found');
+    return (await pipelineRepository.update(id, data))!;
   },
 
   async deletePipeline(id: string): Promise<void> {
     const exists = await pipelineRepository.findById(id);
-    if (!exists) {
-      throw new Error('Pipeline not found');
-    }
-
+    if (!exists) throw new Error('Pipeline not found');
     await pipelineRepository.delete(id);
   },
 };

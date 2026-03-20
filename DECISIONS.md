@@ -22,3 +22,13 @@ Added indexes on `jobs.status`, `jobs.pipeline_id`, and `jobs.created_at` since 
 When a job fails mid-pipeline, the system records which action failed 
 and logs the results of all previously completed actions. This makes 
 debugging in production straightforward without needing external tooling.
+
+## 8. Database Transactions for Pipeline Creation
+Pipeline creation uses a single database transaction (BEGIN/COMMIT/ROLLBACK).
+All inserts (pipeline, actions, subscribers) either succeed together or roll
+back together, preventing partial/broken pipelines in the database.
+
+## 9. Shared Client for Transactions
+Repository methods accept an optional QueryClient parameter (Pool | PoolClient).
+This allows the service layer to pass a transaction client without the repository
+knowing about transaction logic, keeping each layer in its own responsibility.
