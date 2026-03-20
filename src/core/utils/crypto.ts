@@ -12,10 +12,13 @@ export function verifySignature(
     .update(payload)
     .digest('hex');
 
+  const expectedBuffer = Buffer.from(expected);
+  const signatureBuffer = Buffer.from(signature.padEnd(expected.length, '0').slice(0, expected.length));
+
   try {
-    return crypto.timingSafeEqual(
-      Buffer.from(expected),
-      Buffer.from(signature)
+    return (
+      signature.length === expected.length &&
+      crypto.timingSafeEqual(expectedBuffer, signatureBuffer)
     );
   } catch {
     return false;

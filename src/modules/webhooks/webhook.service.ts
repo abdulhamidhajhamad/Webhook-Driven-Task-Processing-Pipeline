@@ -8,6 +8,7 @@ export const webhookService = {
   async processWebhook(
     sourceToken: string,
     payload: Record<string, unknown>,
+    rawBody: string,
     signature?: string
   ): Promise<Job> {
     const pipeline = await pipelineRepository.findByToken(sourceToken);
@@ -20,11 +21,7 @@ export const webhookService = {
         throw new Error('INVALID_SIGNATURE');
       }
 
-      const isValid = verifySignature(
-        JSON.stringify(payload),
-        pipeline.secret,
-        signature
-      );
+      const isValid = verifySignature(rawBody, pipeline.secret, signature);
 
       if (!isValid) {
         throw new Error('INVALID_SIGNATURE');
@@ -42,11 +39,14 @@ export const webhookService = {
       );
 
       await client.query('COMMIT');
-
       return job;
 
     } catch (error) {
-      await client.query('ROLLBACK');
+      try {
+        await client.query('ROLLBACK');
+      } catch (rollbackError) {
+        console.error('Rollback failed:', rollbackError);
+      }
       throw error;
     } finally {
       client.release();

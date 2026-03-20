@@ -25,12 +25,14 @@
   "dependencies": {
     "dotenv": "^17.3.1",
     "express": "^5.2.1",
-    "pg": "^8.20.0"
+    "pg": "^8.20.0",
+    "raw-body": "^3.0.2"
   },
   "devDependencies": {
     "@types/express": "^5.0.6",
     "@types/node": "^25.5.0",
     "@types/pg": "^8.18.0",
+    "@types/raw-body": "^2.1.4",
     "jest": "^30.3.0",
     "ts-jest": "^29.4.6",
     "tsx": "^4.21.0",

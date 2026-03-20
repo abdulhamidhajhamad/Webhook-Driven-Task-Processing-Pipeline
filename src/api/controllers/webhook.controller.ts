@@ -5,11 +5,14 @@ interface WebhookParams {
   sourceToken: string;
 }
 
+type WebhookRequest = Request<WebhookParams> & { rawBody: string };
+
 export const webhookController = {
-  async receive(req: Request<WebhookParams>, res: Response): Promise<void> {
+  async receive(req: WebhookRequest, res: Response): Promise<void> {
     try {
       const { sourceToken } = req.params;
       const payload = req.body;
+      const rawBody = req.rawBody;
       const signature = req.headers['x-webhook-signature'] as string | undefined;
 
       if (!payload || typeof payload !== 'object' || Array.isArray(payload)) {
@@ -20,6 +23,7 @@ export const webhookController = {
       const job = await webhookService.processWebhook(
         sourceToken,
         payload,
+        rawBody,
         signature
       );
 
@@ -35,13 +39,11 @@ export const webhookController = {
           res.status(404).json({ error: 'Pipeline not found' });
           return;
         }
-
         if (error.message === 'INVALID_SIGNATURE') {
           res.status(401).json({ error: 'Invalid webhook signature' });
           return;
         }
       }
-
       res.status(500).json({ error: 'Internal server error' });
     }
   },
