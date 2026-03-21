@@ -4,6 +4,7 @@ import { runMigrations } from '../core/db';
 import { rabbitMQ } from '../core/queue';
 import { pipelineRoutes } from './routes/pipeline.routes';
 import { webhookRoutes } from './routes/webhook.routes';
+import { jobRoutes } from './routes/job.routes';
 import { rawBodyMiddleware } from './middlewares/raw-body';
 
 const app = express();
@@ -14,6 +15,7 @@ app.get('/health', (req, res) => {
 
 app.use('/pipelines', express.json(), pipelineRoutes);
 app.use('/webhooks', rawBodyMiddleware, webhookRoutes);
+app.use('/jobs', express.json(), jobRoutes);
 
 async function start(): Promise<void> {
   try {

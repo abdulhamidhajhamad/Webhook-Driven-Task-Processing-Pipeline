@@ -1,8 +1,8 @@
 import { db } from '../../core/db';
 import { Pool, PoolClient } from 'pg';
 import { toCamelCase, toCamelCaseArray } from '../../core/utils/db-helpers';
-import { Job, JobStatus } from '../../core/types';
-
+import { DeliveryAttempt, Job, JobStatus } from '../../core/types';
+import { deliveryRepository } from '../delivery/delivery.repository';
 type QueryClient = Pool | PoolClient;
 
 export interface CreateJobDto {
@@ -126,4 +126,12 @@ export const jobRepository = {
       [error, JSON.stringify(errorDetail), failedAtAction, JSON.stringify(actionsLog), id]
     );
   },
+
+  async findByIdWithDeliveries(id: string): Promise<(Job & { deliveries: DeliveryAttempt[] }) | null> {
+  const job = await this.findById(id);
+  if (!job) return null;
+
+  const deliveries = await deliveryRepository.findByJobId(id);
+  return { ...job, deliveries };
+},
 };
