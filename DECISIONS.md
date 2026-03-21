@@ -65,3 +65,9 @@ The RabbitMQ publish call happens after the database transaction commits, not in
 
 ## 22. Circuit Breaker on Publish
 If the channel is null when publish is called, we throw immediately rather than waiting or retrying inline. This keeps the webhook ingestion API responsive even when the broker is temporarily unavailable and pushes the failure handling decision to the caller.
+
+## 23. Three Focused Actions as a Processing Chain
+Built three domain-specific actions that work as a deliberate sequence: full_name merges identity fields, currency_converter normalizes the amount to USD, and amount_filter acts as the final gate. Each action has one job and passes its output directly to the next, so the chain is predictable and easy to debug when something fails mid-way.
+
+## 24. In-memory Cache for Exchange Rates
+Added a module-level cache with a 1-hour TTL for exchange rates instead of hitting the external API on every job. No extra infrastructure needed — just a variable and a timestamp check.
