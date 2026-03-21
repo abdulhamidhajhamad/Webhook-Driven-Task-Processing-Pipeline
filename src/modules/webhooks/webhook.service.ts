@@ -25,28 +25,26 @@ export const webhookService = {
 
     if (pipeline.secret) {
       if (!signature) throw new Error('INVALID_SIGNATURE');
-
       const isValid = verifySignature(rawBody, pipeline.secret, signature);
       if (!isValid) throw new Error('INVALID_SIGNATURE');
     }
 
     const client = await db.connect();
+    let job: Job;
+    let isDuplicate: boolean;
 
     try {
       await client.query('BEGIN');
 
-      const { job, isDuplicate } = await jobRepository.create(
+      const result = await jobRepository.create(
         { pipelineId: pipeline.id, payload, externalDeliveryId },
         client
       );
 
-      if (!isDuplicate) {
-        await rabbitMQ.publish(job.id);
-      }
+      job = result.job;
+      isDuplicate = result.isDuplicate;
 
       await client.query('COMMIT');
-
-      return { job, isDuplicate };
 
     } catch (error) {
       try {
@@ -58,5 +56,15 @@ export const webhookService = {
     } finally {
       client.release();
     }
+
+    if (!isDuplicate) {
+      try {
+        await rabbitMQ.publish(job.id);
+      } catch (error) {
+        console.error(`Failed to publish job ${job.id} to queue:`, error);
+      }
+    }
+
+    return { job, isDuplicate };
   },
 };

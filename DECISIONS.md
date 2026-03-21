@@ -49,4 +49,19 @@ Job creation on webhook ingestion is wrapped in a transaction. If the insert fai
 The `ROLLBACK` call inside the catch block is itself wrapped in a try/catch. A failed rollback should never swallow the original error, and the connection is always released in `finally` regardless of what happens.
 
 ## 17. Idempotency via External Delivery IDs
-To prevent double-processing we store the unique id from the event in a UNIQUE column By checking for existence before insertion we ensure a payment event creates exactly one Job even if received multiple times.
+To prevent double-processing we store the unique id from the event in a UNIQUE column. By checking for existence before insertion we ensure a payment event creates exactly one Job even if received multiple times.
+
+## 18. RabbitMQ over PostgreSQL Polling
+The worker polls PostgreSQL in most systems I've seen, but I wanted a cleaner separation between ingestion and processing. RabbitMQ lets the API layer drop a message and move on — the worker picks it up independently with no shared timing dependency. The Dead Letter Exchange also gave us failed-job handling without writing retry logic from scratch.
+
+## 19. Publisher Confirms
+Switched from a regular Channel to ConfirmChannel so that publish() only resolves after RabbitMQ has written the message to disk. Without this, a broker restart between publish and persist would silently drop jobs.
+
+## 20. Exponential Backoff on Reconnect
+Fixed reconnect delays either recover too slowly or flood a restarting broker. Doubling the wait after each attempt (1s → 2s → 4s, capped at 30s) keeps pressure off the broker while still recovering quickly after short outages.
+
+## 21. Publish After Commit
+The RabbitMQ publish call happens after the database transaction commits, not inside it. If publish fails, the job record still exists in the database and can be recovered. The reverse order would risk a ROLLBACK triggered by a broker error wiping out a perfectly valid job.
+
+## 22. Circuit Breaker on Publish
+If the channel is null when publish is called, we throw immediately rather than waiting or retrying inline. This keeps the webhook ingestion API responsive even when the broker is temporarily unavailable and pushes the failure handling decision to the caller.

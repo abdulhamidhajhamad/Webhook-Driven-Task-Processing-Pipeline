@@ -1,15 +1,18 @@
-import amqp, { ChannelModel, Channel } from 'amqplib';
+import amqp, { ChannelModel, ConfirmChannel } from 'amqplib';
 import { config } from '../config';
 
 const EXCHANGE_NAME = 'webhook.events';
 const QUEUE_NAME = 'webhook.jobs';
 const DEAD_LETTER_EXCHANGE = 'webhook.dead';
 const DEAD_LETTER_QUEUE = 'webhook.dead.jobs';
+const MAX_RECONNECT_DELAY = 30000;
 
 class RabbitMQClient {
   private static instance: RabbitMQClient;
   private connection: ChannelModel | null = null;
-  private channel: Channel | null = null;
+  private channel: ConfirmChannel | null = null;
+  private reconnectAttempts = 0;
+  private isConnecting = false;
 
   private constructor() {}
 
@@ -21,24 +24,35 @@ class RabbitMQClient {
   }
 
   async connect(): Promise<void> {
+    if (this.isConnecting) return;
+    this.isConnecting = true;
+
     try {
       this.connection = await amqp.connect(config.rabbitmqUrl);
-      this.channel = await this.connection.createChannel();
+      this.channel = await this.connection.createConfirmChannel();
 
       await this.setup();
 
+      this.reconnectAttempts = 0;
+      this.isConnecting = false;
+
       this.connection.on('close', async () => {
         console.log('RabbitMQ connection closed, reconnecting...');
+        this.channel = null;
+        this.connection = null;
         await this.reconnect();
       });
 
       this.connection.on('error', async (error) => {
         console.error('RabbitMQ connection error:', error);
+        this.channel = null;
+        this.connection = null;
         await this.reconnect();
       });
 
       console.log('RabbitMQ connected');
     } catch (error) {
+      this.isConnecting = false;
       console.error('RabbitMQ connection failed:', error);
       await this.reconnect();
     }
@@ -78,36 +92,50 @@ class RabbitMQClient {
   }
 
   private async reconnect(): Promise<void> {
-    this.connection = null;
-    this.channel = null;
+    if (this.isConnecting) return;
 
-    await new Promise((resolve) => setTimeout(resolve, 5000));
+    const delay = Math.min(
+      1000 * Math.pow(2, this.reconnectAttempts),
+      MAX_RECONNECT_DELAY
+    );
 
-    console.log('Attempting to reconnect to RabbitMQ...');
+    this.reconnectAttempts++;
+
+    console.log(
+      `Reconnect attempt ${this.reconnectAttempts}, waiting ${delay}ms...`
+    );
+
+    await new Promise((resolve) => setTimeout(resolve, delay));
     await this.connect();
   }
 
   async publish(jobId: string): Promise<void> {
-    if (!this.channel) {
-      throw new Error('RabbitMQ channel not available');
+    if (!this.channel || !this.connection) {
+      throw new Error('Queue Service Unavailable');
     }
 
     const message = JSON.stringify({ jobId });
 
-    this.channel.publish(
-      EXCHANGE_NAME,
-      'job',
-      Buffer.from(message),
-      {
-        persistent: true,
-        messageId: jobId,
-      }
-    );
+    return new Promise<void>((resolve, reject) => {
+      this.channel!.publish(
+        EXCHANGE_NAME,
+        'job',
+        Buffer.from(message),
+        { persistent: true, messageId: jobId },
+        (error) => {
+          if (error) {
+            reject(new Error(`Message publish failed: ${error.message}`));
+          } else {
+            resolve();
+          }
+        }
+      );
+    });
   }
 
   async consume(handler: (jobId: string) => Promise<void>): Promise<void> {
     if (!this.channel) {
-      throw new Error('RabbitMQ channel not available');
+      throw new Error('Queue Service Unavailable');
     }
 
     await this.channel.prefetch(1);
@@ -120,13 +148,13 @@ class RabbitMQClient {
         await handler(jobId);
         this.channel!.ack(msg);
       } catch (error) {
-        console.error('Job processing failed:', error);
+        console.error('Job processing failed, sending to DLX:', error);
         this.channel!.nack(msg, false, false);
       }
     });
   }
 
-  getChannel(): Channel | null {
+  getChannel(): ConfirmChannel | null {
     return this.channel;
   }
 }
