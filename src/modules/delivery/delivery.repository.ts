@@ -48,4 +48,45 @@ export const deliveryRepository = {
     );
     return parseInt(result.rows[0].count);
   },
+
+  async getDueRetries(limit = 50): Promise<Array<{ attempt: DeliveryAttempt, payload: Record<string, unknown>, url: string }>> {
+    const query = `
+      WITH locked_attempts AS (
+        SELECT id FROM delivery_attempts
+        WHERE status = 'failed'
+          AND next_retry_at IS NOT NULL
+          AND next_retry_at <= NOW()
+        FOR UPDATE SKIP LOCKED
+        LIMIT $1
+      ),
+      updated_attempts AS (
+        UPDATE delivery_attempts da
+        SET next_retry_at = NULL
+        FROM locked_attempts la
+        WHERE da.id = la.id
+        RETURNING da.*
+      )
+      SELECT ua.*, j.payload as job_payload, s.url as subscriber_url
+      FROM updated_attempts ua
+      JOIN jobs j ON ua.job_id = j.id
+      JOIN subscribers s ON ua.subscriber_id = s.id;
+    `;
+    const result = await db.query(query, [limit]);
+    
+    return result.rows.map(row => ({
+      attempt: toCamelCase<DeliveryAttempt>({
+        id: row.id,
+        job_id: row.job_id,
+        subscriber_id: row.subscriber_id,
+        status: row.status,
+        response_status: row.response_status,
+        error: row.error,
+        attempt_number: row.attempt_number,
+        attempted_at: row.attempted_at,
+        next_retry_at: row.next_retry_at
+      }),
+      payload: row.job_payload,
+      url: row.subscriber_url
+    }));
+  }
 };

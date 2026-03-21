@@ -135,12 +135,6 @@ async function deliverWithRetry(
         ? new Date(Date.now() + RETRY_DELAYS[attempt + 1])
         : undefined,
     });
-
-    if (!response.ok && attempt < RETRY_DELAYS.length - 1) {
-      await new Promise((resolve) => setTimeout(resolve, RETRY_DELAYS[attempt + 1]));
-      await deliverWithRetry(jobId, subscriber, payload, attempt + 1);
-    }
-
   } catch (error) {
     const errorMessage = error instanceof Error ? error.message : String(error);
 
@@ -154,10 +148,23 @@ async function deliverWithRetry(
         ? new Date(Date.now() + RETRY_DELAYS[attempt + 1])
         : undefined,
     });
+  }
+}
 
-    if (attempt < RETRY_DELAYS.length - 1) {
-      await new Promise((resolve) => setTimeout(resolve, RETRY_DELAYS[attempt + 1]));
-      await deliverWithRetry(jobId, subscriber, payload, attempt + 1);
+export async function processDueRetries(): Promise<void> {
+  try {
+    const retries = await deliveryRepository.getDueRetries(50);
+    
+    for (const { attempt, payload, url } of retries) {
+      console.log(`[Retry] Processing retry for job ${attempt.jobId} to subscriber ${attempt.subscriberId} (Attempt ${attempt.attemptNumber + 1})`);
+      await deliverWithRetry(
+        attempt.jobId,
+        { id: attempt.subscriberId, url },
+        payload,
+        attempt.attemptNumber
+      );
     }
+  } catch (error) {
+    console.error('Error processing due retries:', error);
   }
 }
