@@ -157,6 +157,15 @@ class RabbitMQClient {
   getChannel(): ConfirmChannel | null {
     return this.channel;
   }
+  async close(): Promise<void> {
+  try {
+    if (this.channel) await this.channel.close();
+    if (this.connection) await this.connection.close();
+    console.log('RabbitMQ connection closed gracefully');
+  } catch (error) {
+    console.error('Error during RabbitMQ shutdown:', error);
+  }
+}
 }
 
 export const rabbitMQ = RabbitMQClient.getInstance();
