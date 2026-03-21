@@ -1,5 +1,4 @@
 import { Request, Response, NextFunction } from 'express';
-import getRawBody from 'raw-body';
 
 export async function rawBodyMiddleware(
   req: Request,
@@ -7,15 +6,27 @@ export async function rawBodyMiddleware(
   next: NextFunction
 ): Promise<void> {
   try {
-    const raw = await getRawBody(req, {
-      length: req.headers['content-length'],
-      limit: '1mb',
-      encoding: 'utf-8',
+    const chunks: Buffer[] = [];
+
+    req.on('data', (chunk: Buffer) => {
+      chunks.push(chunk);
     });
 
-    (req as Request & { rawBody: string }).rawBody = raw;
-    req.body = JSON.parse(raw);
-    next();
+    req.on('end', () => {
+      try {
+        const raw = Buffer.concat(chunks).toString('utf-8');
+        (req as Request & { rawBody: string }).rawBody = raw;
+        req.body = raw ? JSON.parse(raw) : {};
+        next();
+      } catch {
+        res.status(400).json({ error: 'Invalid JSON body' });
+      }
+    });
+
+    req.on('error', () => {
+      res.status(400).json({ error: 'Error reading request body' });
+    });
+
   } catch {
     res.status(400).json({ error: 'Invalid JSON body' });
   }
