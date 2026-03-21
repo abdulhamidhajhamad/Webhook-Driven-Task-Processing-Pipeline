@@ -71,3 +71,18 @@ Built three domain-specific actions that work as a deliberate sequence: full_nam
 
 ## 24. In-memory Cache for Exchange Rates
 Added a module-level cache with a 1-hour TTL for exchange rates instead of hitting the external API on every job. No extra infrastructure needed — just a variable and a timestamp check.
+
+## 25. Database-Backed Retries over In-Memory Timers
+Instead of using setTimeout for retries—which would vanish if the worker crashed or restarted—I persisted the retry state in the database. When a delivery fails, we simply calculate the next_retry_at timestamp and release the job. This ensures 100% reliability; even if the entire infrastructure goes down for a day, the system will pick up exactly where it left off once rebooted.
+
+## 26. Atomic Polling with SKIP LOCKED
+To handle the scheduled retries, I implemented a light polling mechanism in the worker. It uses a specialized SQL query with FOR UPDATE SKIP LOCKED. This allows us to scale to multiple worker instances safely; each worker "grabs" its own batch of due retries without any two workers ever attempting to process the same failed delivery at the same time.
+
+## 27. Tiered Rate Limiting
+I implemented express-rate-limit with two distinct strategies. There’s a loose global limit to prevent general resource exhaustion, and a much stricter "Tight Gate" on the webhook ingestion endpoints. This specifically protects the database and RabbitMQ from being flooded by a malfunctioning or malicious external sender before the request even hits our business logic.
+
+## 28. Response-Based Retry Backoff
+The retry logic doesn't just blindly guess when to try again. It captures the response_status from the subscriber. If we get a 429 (Too Many Requests), the system pushes the next_retry_at further out than it would for a 500 (Internal Server Error), respecting the destination's own rate limits and preventing us from being blocked.
+
+## 29. Graceful Poller Shutdown
+The background retry interval is tied to the worker's lifecycle. On SIGTERM or SIGINT, we explicitly clear the interval and wait for the current polling tick to finish before exiting. This prevents database connections and ensures that a shutdown mid-poll doesn't leave rows in a locked state.
