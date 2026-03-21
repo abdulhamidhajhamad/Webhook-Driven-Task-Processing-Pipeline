@@ -1,4 +1,4 @@
-CREATE TABLE pipelines (
+CREATE TABLE IF NOT EXISTS pipelines (
   id           UUID        PRIMARY KEY DEFAULT gen_random_uuid(),
   name         TEXT        NOT NULL,
   source_token TEXT        UNIQUE NOT NULL DEFAULT gen_random_uuid()::text,

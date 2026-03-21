@@ -1,27 +1,6 @@
+version: '3.8'
+
 services:
-  api:
-    build: .
-    ports:
-      - "3000:3000"
-    depends_on:
-      db:
-        condition: service_healthy
-      rabbitmq:
-        condition: service_healthy
-    env_file:
-      - .env
-
-  worker:
-    build: .
-    command: node dist/worker/worker.js
-    depends_on:
-      db:
-        condition: service_healthy
-      rabbitmq:
-        condition: service_healthy
-    env_file:
-      - .env
-
   db:
     image: postgres:16-alpine
     environment:
@@ -31,7 +10,7 @@ services:
     volumes:
       - pgdata:/var/lib/postgresql/data
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U webhook_user"]
+      test: ["CMD-SHELL", "pg_isready -U webhook_user -d webhook_pipeline"]
       interval: 5s
       timeout: 5s
       retries: 5
@@ -51,6 +30,29 @@ services:
       interval: 10s
       timeout: 5s
       retries: 5
+
+  api:
+    build: .
+    ports:
+      - "3001:3001"
+    depends_on:
+      db:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+    env_file:
+      - .env
+
+  worker:
+    build: .
+    command: node dist/worker/worker.js
+    depends_on:
+      db:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+    env_file:
+      - .env
 
 volumes:
   pgdata:
