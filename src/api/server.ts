@@ -6,13 +6,12 @@ import { webhookRoutes } from './routes/webhook.routes';
 import { rawBodyMiddleware } from './middlewares/raw-body';
 
 const app = express();
-app.use(express.json());
 
 app.get('/health', (req, res) => {
   res.status(200).json({ status: 'ok', timestamp: new Date() });
 });
 
-app.use('/pipelines', pipelineRoutes);
+app.use('/pipelines', express.json(), pipelineRoutes);
 app.use('/webhooks', rawBodyMiddleware, webhookRoutes);
 
 async function start(): Promise<void> {
