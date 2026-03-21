@@ -1,5 +1,6 @@
 import { db } from '../../core/db';
 import { pipelineRepository } from './pipeline.repository';
+import { AppError } from '../../core/errors/AppError';
 import {
   CreatePipelineDto,
   PipelineWithDetails,
@@ -9,15 +10,15 @@ import {
 export const pipelineService = {
   async createPipeline(data: CreatePipelineDto): Promise<PipelineWithDetails> {
     if (!data.name || data.name.trim() === '') {
-      throw new Error('Pipeline name is required');
+      throw new AppError('Pipeline name is required', 400);
     }
 
     if (!data.actions || data.actions.length === 0) {
-      throw new Error('Pipeline must have at least one action');
+      throw new AppError('Pipeline must have at least one action', 400);
     }
 
     if (!data.subscribers || data.subscribers.length === 0) {
-      throw new Error('Pipeline must have at least one subscriber');
+      throw new AppError('Pipeline must have at least one subscriber', 400);
     }
 
     const client = await db.connect();
@@ -49,7 +50,7 @@ export const pipelineService = {
 
   async getPipeline(id: string): Promise<PipelineWithDetails> {
     const pipeline = await pipelineRepository.findWithDetails(id);
-    if (!pipeline) throw new Error('Pipeline not found');
+    if (!pipeline) throw new AppError('Pipeline not found', 404);
     return pipeline;
   },
 
@@ -62,17 +63,17 @@ export const pipelineService = {
     data: Partial<Pick<Pipeline, 'name' | 'secret' | 'isActive'>>
   ): Promise<Pipeline> {
     const exists = await pipelineRepository.findById(id);
-    if (!exists) throw new Error('Pipeline not found');
+    if (!exists) throw new AppError('Pipeline not found', 404);
 
     const updated = await pipelineRepository.update(id, data,db);
-    if (!updated) throw new Error('Pipeline not found');
+    if (!updated) throw new AppError('Pipeline not found', 404);
 
     return updated;
   },
 
   async deletePipeline(id: string): Promise<void> {
     const exists = await pipelineRepository.findById(id);
-    if (!exists) throw new Error('Pipeline not found');
+    if (!exists) throw new AppError('Pipeline not found', 404);
 
     await pipelineRepository.delete(id, db);
   },

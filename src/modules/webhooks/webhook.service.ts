@@ -4,6 +4,7 @@ import { pipelineRepository } from '../pipelines/pipeline.repository';
 import { jobRepository } from '../jobs/job.repository';
 import { verifySignature } from '../../core/utils/crypto';
 import { Job } from '../../core/types';
+import { AppError } from '../../core/errors/AppError';
 
 export interface ProcessWebhookResult {
   job: Job;
@@ -20,13 +21,13 @@ export const webhookService = {
   ): Promise<ProcessWebhookResult> {
     const pipeline = await pipelineRepository.findByToken(sourceToken);
     if (!pipeline) {
-      throw new Error('PIPELINE_NOT_FOUND');
+      throw new AppError('Pipeline not found', 404);
     }
 
     if (pipeline.secret) {
-      if (!signature) throw new Error('INVALID_SIGNATURE');
+      if (!signature) throw new AppError('Invalid webhook signature', 401);
       const isValid = verifySignature(rawBody, pipeline.secret, signature);
-      if (!isValid) throw new Error('INVALID_SIGNATURE');
+      if (!isValid) throw new AppError('Invalid webhook signature', 401);
     }
 
     const client = await db.connect();
