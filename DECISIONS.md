@@ -86,3 +86,12 @@ The retry logic doesn't just blindly guess when to try again. It captures the re
 
 ## 29. Graceful Poller Shutdown
 The background retry interval is tied to the worker's lifecycle. On SIGTERM or SIGINT, we explicitly clear the interval and wait for the current polling tick to finish before exiting. This prevents database connections and ensures that a shutdown mid-poll doesn't leave rows in a locked state.
+
+## 30. Structured Request Context for Debugging
+Instead of just logging string messages, I attached a unique request_id to every incoming webhook. This ID travels from the API to the Queue and finally to the Worker. If a customer reports a missing event, I can grep the logs for that specific ID and see the entire lifecycle—from the moment it hit our server to the final delivery attempt—without guessing which log belongs to which request.
+
+## 31. Health Check Endpoints for Orchestration
+I didn't just rely on Docker's restart policy. I added a /health endpoint that actually pings the Database and checks the RabbitMQ connection status. This is crucial for Docker Compose or Kubernetes; it prevents the API from accepting traffic if the backing services are still booting up, ensuring we never return a 500 just because the DB was a few seconds slow to start.
+
+## 32. Manual "Kill Switch" for Pipelines
+I added an is_active toggle for pipelines. If a subscriber's server goes down and starts throwing thousands of errors, the user can temporarily "pause" the pipeline. The jobs will still be queued, but the worker will skip delivery until the toggle is flipped back. This prevents our retry queue from being flooded with doomed attempts and saves server resources during external outages.
