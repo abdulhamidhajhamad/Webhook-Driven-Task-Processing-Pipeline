@@ -1,4 +1,5 @@
 import { db } from '../../core/db';
+import { rabbitMQ } from '../../core/queue';
 import { pipelineRepository } from '../pipelines/pipeline.repository';
 import { jobRepository } from '../jobs/job.repository';
 import { verifySignature } from '../../core/utils/crypto';
@@ -23,14 +24,10 @@ export const webhookService = {
     }
 
     if (pipeline.secret) {
-      if (!signature) {
-        throw new Error('INVALID_SIGNATURE');
-      }
+      if (!signature) throw new Error('INVALID_SIGNATURE');
 
       const isValid = verifySignature(rawBody, pipeline.secret, signature);
-      if (!isValid) {
-        throw new Error('INVALID_SIGNATURE');
-      }
+      if (!isValid) throw new Error('INVALID_SIGNATURE');
     }
 
     const client = await db.connect();
@@ -39,13 +36,13 @@ export const webhookService = {
       await client.query('BEGIN');
 
       const { job, isDuplicate } = await jobRepository.create(
-        {
-          pipelineId: pipeline.id,
-          payload,
-          externalDeliveryId,
-        },
+        { pipelineId: pipeline.id, payload, externalDeliveryId },
         client
       );
+
+      if (!isDuplicate) {
+        await rabbitMQ.publish(job.id);
+      }
 
       await client.query('COMMIT');
 
