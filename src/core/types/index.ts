@@ -62,7 +62,11 @@ export interface ActionLog {
   error?: string;
 }
 
-export type ActionType = 'transform' | 'filter' | 'enrich';
+export type ActionType =
+  | 'full_name'
+  | 'currency_converter'
+  | 'amount_filter';
+
 export type JobStatus = 'pending' | 'processing' | 'completed' | 'failed';
 export type DeliveryStatus = 'success' | 'failed';
 
