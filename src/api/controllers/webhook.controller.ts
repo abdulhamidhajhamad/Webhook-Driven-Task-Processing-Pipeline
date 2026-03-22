@@ -15,11 +15,7 @@ export const webhookController = {
     const payload = req.body;
     const rawBody = req.rawBody;
     const signature = req.headers['x-webhook-signature'] as string | undefined;
-    const externalDeliveryId = (
-      req.headers['x-github-delivery'] ??
-      req.headers['x-request-id'] ??
-      req.headers['x-delivery-id']
-    ) as string | undefined;
+    const externalDeliveryId = req.headers['x-request-id'] as string | undefined;
 
     if (!payload || typeof payload !== 'object' || Array.isArray(payload)) {
       throw new AppError('Payload must be a valid JSON object', 400);

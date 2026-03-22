@@ -34,9 +34,9 @@ export async function runMigrations() {
         'INSERT INTO migrations (filename) VALUES ($1)',
         [file]
       );
-      console.log(`✅ Migration ran: ${file}`);
+      console.log(`Migration ran: ${file}`);
     } else {
-      console.log(`⏭️ Already ran: ${file}`);
+      console.log(`Already ran: ${file}`);
     }
   }
 }

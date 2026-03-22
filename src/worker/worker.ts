@@ -28,7 +28,7 @@ async function start(): Promise<void> {
     });
 
     const shutdown = async () => {
-      console.log('📦 Shutting down worker...');
+      console.log('Shutting down worker...');
       clearInterval(retryInterval);
       await rabbitMQ.close();
       process.exit(0);
