@@ -3,6 +3,7 @@ import { pipelineRepository } from '../../modules/pipelines/pipeline.repository'
 import { deliveryRepository } from '../../modules/delivery/delivery.repository';
 import { actions } from '../../actions';
 import { ActionLog, ActionType } from '../../core/types';
+import { rabbitMQ } from '../../core/queue';
 
 const RETRY_DELAYS = [0, 30_000, 300_000, 1_800_000, 3_600_000];
 
@@ -111,60 +112,69 @@ async function deliverToSubscribers(
   }
 }
 
-async function deliverWithRetry(
+export async function deliverWithRetry(
   jobId: string,
   subscriber: { id: string; url: string },
   payload: Record<string, unknown>,
   attempt: number
 ): Promise<void> {
+  const isOk = await executeDeliveryRequest(subscriber.url, payload);
+
+  await recordAttemptAndScheduleRetry(
+    jobId,
+    subscriber,
+    payload,
+    attempt,
+    isOk,
+    isOk ? 'success' : undefined
+  );
+}
+
+async function executeDeliveryRequest(
+  url: string,
+  payload: Record<string, unknown>
+): Promise<boolean> {
   try {
-    const response = await fetch(subscriber.url, {
+    const response = await fetch(url, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(payload),
       signal: AbortSignal.timeout(10_000),
     });
-
-    await deliveryRepository.create({
-      jobId,
-      subscriberId: subscriber.id,
-      status: response.ok ? 'success' : 'failed',
-      responseStatus: response.status,
-      attemptNumber: attempt + 1,
-      nextRetryAt: !response.ok && attempt < RETRY_DELAYS.length - 1
-        ? new Date(Date.now() + RETRY_DELAYS[attempt + 1])
-        : undefined,
-    });
-  } catch (error) {
-    const errorMessage = error instanceof Error ? error.message : String(error);
-
-    await deliveryRepository.create({
-      jobId,
-      subscriberId: subscriber.id,
-      status: 'failed',
-      error: errorMessage,
-      attemptNumber: attempt + 1,
-      nextRetryAt: attempt < RETRY_DELAYS.length - 1
-        ? new Date(Date.now() + RETRY_DELAYS[attempt + 1])
-        : undefined,
-    });
+    return response.ok;
+  } catch {
+    return false;
   }
 }
 
-export async function processDueRetries(): Promise<void> {
-  try {
-    const retries = await deliveryRepository.getDueRetries(50);
-    
-    for (const { attempt, payload, url } of retries) {
-      console.log(`[Retry] Processing retry for job ${attempt.jobId} to subscriber ${attempt.subscriberId} (Attempt ${attempt.attemptNumber + 1})`);
-      await deliverWithRetry(
-        attempt.jobId,
-        { id: attempt.subscriberId, url },
+async function recordAttemptAndScheduleRetry(
+  jobId: string,
+  subscriber: { id: string; url: string },
+  payload: Record<string, unknown>,
+  attempt: number,
+  isOk: boolean,
+  errorOrStatus?: string
+): Promise<void> {
+  await deliveryRepository.create({
+    jobId,
+    subscriberId: subscriber.id,
+    status: isOk ? 'success' : 'failed',
+    responseStatus: isOk ? 200 : undefined,
+    error: !isOk ? errorOrStatus || 'Delivery failed' : undefined,
+    attemptNumber: attempt + 1,
+  });
+
+  if (!isOk && attempt < RETRY_DELAYS.length - 1) {
+    const nextDelay = RETRY_DELAYS[attempt + 1];
+    if (nextDelay > 0) {
+      await rabbitMQ.publishRetry(nextDelay, {
+        jobId,
+        subscriber,
         payload,
-        attempt.attemptNumber
-      );
+        attempt: attempt + 1,
+      });
+    } else {
+      await deliverWithRetry(jobId, subscriber, payload, attempt + 1);
     }
-  } catch (error) {
-    console.error('Error processing due retries:', error);
   }
 }

@@ -5,7 +5,19 @@ const EXCHANGE_NAME = 'webhook.events';
 const QUEUE_NAME = 'webhook.jobs';
 const DEAD_LETTER_EXCHANGE = 'webhook.dead';
 const DEAD_LETTER_QUEUE = 'webhook.dead.jobs';
+
+const RETRY_EXCHANGE = 'webhook.retry';
+const RETRY_QUEUE = 'webhook.retry.jobs';
+const DELAY_EXCHANGE = 'webhook.delay';
+
 const MAX_RECONNECT_DELAY = 30000;
+
+export interface RetryPayload {
+  jobId: string;
+  subscriber: { id: string; url: string };
+  payload: Record<string, unknown>;
+  attempt: number;
+}
 
 class RabbitMQClient {
   private static instance: RabbitMQClient;
@@ -89,6 +101,17 @@ class RabbitMQClient {
     });
 
     await this.channel.bindQueue(QUEUE_NAME, EXCHANGE_NAME, 'job');
+
+    await this.channel.assertExchange(DELAY_EXCHANGE, 'topic', {
+      durable: true,
+    });
+    await this.channel.assertExchange(RETRY_EXCHANGE, 'direct', {
+      durable: true,
+    });
+    await this.channel.assertQueue(RETRY_QUEUE, {
+      durable: true,
+    });
+    await this.channel.bindQueue(RETRY_QUEUE, RETRY_EXCHANGE, 'retry');
   }
 
   private async reconnect(): Promise<void> {
@@ -149,6 +172,61 @@ class RabbitMQClient {
         this.channel!.ack(msg);
       } catch (error) {
         console.error('Job processing failed, sending to DLX:', error);
+        this.channel!.nack(msg, false, false);
+      }
+    });
+  }
+
+  async publishRetry(delayMs: number, payload: RetryPayload): Promise<void> {
+    const delayQueue = `webhook.delay.${delayMs}`;
+    
+    await this.channel!.assertQueue(delayQueue, {
+      durable: true,
+      arguments: {
+        'x-dead-letter-exchange': RETRY_EXCHANGE,
+        'x-dead-letter-routing-key': 'retry',
+        'x-message-ttl': delayMs,
+        'x-expires': delayMs * 2 + 60000,
+      },
+    });
+
+    await this.channel!.bindQueue(delayQueue, DELAY_EXCHANGE, `delay.${delayMs}`);
+
+    const message = JSON.stringify(payload);
+
+    return new Promise<void>((resolve, reject) => {
+      this.channel!.publish(
+        DELAY_EXCHANGE,
+        `delay.${delayMs}`,
+        Buffer.from(message),
+        { persistent: true, messageId: `${payload.jobId}-${payload.attempt}` },
+        (error) => {
+          if (error) {
+            reject(new Error(`Retry publish failed: ${error.message}`));
+          } else {
+            resolve();
+          }
+        }
+      );
+    });
+  }
+
+  async consumeRetry(handler: (payload: RetryPayload) => Promise<void>): Promise<void> {
+    if (!this.channel) {
+      throw new Error('Queue Service Unavailable');
+    }
+
+    await this.channel.prefetch(1);
+
+    await this.channel.consume(RETRY_QUEUE, async (msg) => {
+      if (!msg) return;
+
+      try {
+        const payload: RetryPayload = JSON.parse(msg.content.toString());
+        await handler(payload);
+        this.channel!.ack(msg);
+      } catch (error) {
+        console.error('Retry processing failed:', error);
         this.channel!.nack(msg, false, false);
       }
     });
