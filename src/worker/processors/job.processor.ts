@@ -78,6 +78,8 @@ export async function processJob(jobId: string): Promise<void> {
     return;
   }
 
+  await jobRepository.markProcessing(jobId);
+
   const pipeline = await pipelineRepository.findWithDetails(job.pipelineId);
   if (!pipeline) {
     await jobRepository.markFailed(

@@ -91,6 +91,28 @@ export const jobRepository = {
     return toCamelCase<Job>(result.rows[0]);
   },
 
+  async getStalledPendingJobs(minutes: number = 15, limit: number = 100): Promise<Job[]> {
+    const result = await db.query(
+      `SELECT * FROM jobs
+       WHERE status = 'pending'
+       AND created_at < NOW() - ($1 || ' minutes')::INTERVAL
+       ORDER BY created_at ASC
+       LIMIT $2
+       FOR UPDATE SKIP LOCKED`,
+      [minutes, limit]
+    );
+    return toCamelCaseArray<Job>(result.rows);
+  },
+
+  async markProcessing(id: string): Promise<void> {
+    await db.query(
+      `UPDATE jobs
+       SET status = 'processing', attempts = attempts + 1
+       WHERE id = $1`,
+      [id]
+    );
+  },
+
   async markCompleted(
     id: string,
     result: Record<string, unknown>,

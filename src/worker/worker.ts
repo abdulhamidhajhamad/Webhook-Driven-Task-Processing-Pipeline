@@ -1,6 +1,7 @@
 import { runMigrations } from '../core/db';
 import { rabbitMQ } from '../core/queue';
 import { processJob, deliverWithRetry } from './processors/job.processor';
+import { runSweepCycle } from './processors/sweep.processor';
 
 async function setupMainConsumer(): Promise<void> {
   await rabbitMQ.consume(async (jobId: string) => {
@@ -40,6 +41,18 @@ function setupGracefulShutdown(): void {
   process.on('SIGINT', shutdown);
 }
 
+function setupSweepWorker(): void {
+  const SWEEP_INTERVAL_MS = 5 * 60 * 1000; // 5 minutes
+  
+  console.log(`[Sweep Worker] Initialized. Running every 5 minutes.`);
+  
+  runSweepCycle();
+
+  setInterval(() => {
+    runSweepCycle();
+  }, SWEEP_INTERVAL_MS);
+}
+
 async function bootstrap(): Promise<void> {
   try {
     await runMigrations();
@@ -55,6 +68,10 @@ async function bootstrap(): Promise<void> {
 
     if (workerType === 'retry' || workerType === 'all') {
       await setupRetryConsumer();
+    }
+
+    if (workerType === 'sweeper' || workerType === 'all') {
+      setupSweepWorker();
     }
 
     console.log(`Worker started successfully in [${workerType}] mode.`);
