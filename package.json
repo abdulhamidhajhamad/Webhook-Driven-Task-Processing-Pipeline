@@ -8,7 +8,7 @@
     "dev": "tsx watch src/api/server.ts",
     "worker": "tsx watch src/worker/worker.ts",
     "start": "node dist/api/server.js",
-    "test": "jest"
+    "test": "vitest run"
   },
   "repository": {
     "type": "git",
