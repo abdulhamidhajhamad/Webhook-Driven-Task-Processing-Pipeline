@@ -98,3 +98,6 @@ I added an is_active toggle for pipelines. If a subscriber's server goes down an
 
 ## 33. Dedicated Workers for Separation of Concerns
 To prevent failed jobs from clogging up the pipeline for new events (Head-of-Line blocking), I split the worker into two distinct roles. Instead of maintaining two separate codebases, I used a `WORKER_TYPE` environment variable in a single script. Now we can run `WORKER_TYPE=main` to process fresh jobs, and `WORKER_TYPE=retry` in a separate container for delayed attempts. This lets us scale independently—we can spin up multiple main workers to handle traffic spikes in Docker, while keeping just one lightweight worker solely for retries.
+
+## 34. SSRF Protection for Subscriber Deliveries
+Since users provide the subscriber URLs, the worker was vulnerable to Server-Side Request Forgery (SSRF). I added a validation layer in the delivery logic that resolves the hostname and blocks any requests to private IP ranges (127.0.0.1, 192.168.x.x, etc.) or reserved cloud metadata IPs. This ensures the worker can't be used as a proxy to attack our internal database or the host's infrastructure.
