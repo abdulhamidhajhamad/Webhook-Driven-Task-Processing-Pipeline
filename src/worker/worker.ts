@@ -1,35 +1,8 @@
 import { runMigrations } from '../core/db';
 import { rabbitMQ } from '../core/queue';
-import { processJob, deliverWithRetry } from './processors/job.processor';
-import { runSweepCycle } from './processors/sweep.processor';
-
-async function setupMainConsumer(): Promise<void> {
-  await rabbitMQ.consume(async (jobId: string) => {
-    try {
-      console.log(`Received job: ${jobId}`);
-      await processJob(jobId);
-      console.log(`Job completed: ${jobId}`);
-    } catch (error) {
-      console.error(`Error processing job ${jobId}:`, error);
-    }
-  });
-}
-
-async function setupRetryConsumer(): Promise<void> {
-  await rabbitMQ.consumeRetry(async (payload) => {
-    try {
-      console.log(`[Retry] Job ${payload.jobId} | Subscriber ${payload.subscriber.id} | Attempt ${payload.attempt + 1}`);
-      await deliverWithRetry(
-        payload.jobId,
-        payload.subscriber,
-        payload.payload,
-        payload.attempt
-      );
-    } catch (error) {
-      console.error(`Error processing retry:`, error);
-    }
-  });
-}
+import { setupMainConsumer } from './consumers/main.consumer';
+import { setupRetryConsumer } from './consumers/retry.consumer';
+import { setupSweepWorker } from './consumers/sweep.consumer';
 
 function setupGracefulShutdown(): void {
   const shutdown = async () => {
@@ -39,18 +12,6 @@ function setupGracefulShutdown(): void {
 
   process.on('SIGTERM', shutdown);
   process.on('SIGINT', shutdown);
-}
-
-function setupSweepWorker(): void {
-  const SWEEP_INTERVAL_MS = 5 * 60 * 1000; // 5 minutes
-  
-  console.log(`[Sweep Worker] Initialized. Running every 5 minutes.`);
-  
-  runSweepCycle();
-
-  setInterval(() => {
-    runSweepCycle();
-  }, SWEEP_INTERVAL_MS);
 }
 
 async function bootstrap(): Promise<void> {
