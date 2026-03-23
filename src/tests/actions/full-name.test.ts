@@ -1,5 +1,5 @@
-import { describe, expect, test } from "vitest";
-import { fullNameAction } from "./full-name.action";
+﻿import { describe, expect, test } from "vitest";
+import { fullNameAction } from "../../actions/full-name.action";
 
 describe("fullNameAction", () => {
   test("concat firstName and lastName correctly", async () => {

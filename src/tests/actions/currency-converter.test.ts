@@ -1,5 +1,5 @@
-import { describe, expect, test, vi, afterEach } from "vitest";
-import { currencyConverterAction } from "./currency-converter.action";
+﻿import { describe, expect, test, vi, afterEach } from "vitest";
+import { currencyConverterAction } from "../../actions/currency-converter.action";
 
 describe("currencyConverterAction", () => {
   afterEach(() => {
