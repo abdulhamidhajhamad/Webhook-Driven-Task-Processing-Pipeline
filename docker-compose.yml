@@ -43,7 +43,7 @@ services:
     env_file:
       - .env
 
-  worker:
+  worker-main:
     build: .
     command: node dist/worker/worker.js
     depends_on:
@@ -51,6 +51,21 @@ services:
         condition: service_healthy
       rabbitmq:
         condition: service_healthy
+    environment:
+      - WORKER_TYPE=main
+    env_file:
+      - .env
+
+  worker-retry:
+    build: .
+    command: node dist/worker/worker.js
+    depends_on:
+      db:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+    environment:
+      - WORKER_TYPE=retry
     env_file:
       - .env
 
