@@ -73,10 +73,10 @@ Built three domain-specific actions that work as a deliberate sequence: full_nam
 Added a module-level cache with a 1-hour TTL for exchange rates instead of hitting the external API on every job. No extra infrastructure needed — just a variable and a timestamp check.
 
 ## 25. Database-Backed Retries over In-Memory Timers
-Instead of using setTimeout for retries—which would vanish if the worker crashed or restarted—I persisted the retry state in the database. When a delivery fails, we simply calculate the next_retry_at timestamp and release the job. This ensures 100% reliability; even if the entire infrastructure goes down for a day, the system will pick up exactly where it left off once rebooted.
+Instead of using setTimeout for retries—which would vanish if the worker crashed or restarted—I persist the exact attempt count and status in the database. When a delivery fails, we calculate the next delay and hand it off to the message broker. This ensures 100% reliability; even if the worker crashes, the delivery record in the DB accurately reflects what happened and the broker safely holds the pending retry.
 
-## 26. Atomic Polling with SKIP LOCKED
-To handle the scheduled retries, I implemented a light polling mechanism in the worker. It uses a specialized SQL query with FOR UPDATE SKIP LOCKED. This allows us to scale to multiple worker instances safely; each worker "grabs" its own batch of due retries without any two workers ever attempting to process the same failed delivery at the same time.
+## 26. Zero-Polling Retries via RabbitMQ TTL
+Initially, I implemented retry polling using `FOR UPDATE SKIP LOCKED` in PostgreSQL. However, querying the database constantly for delayed jobs wasted resources. I ripped out the polling completely and replaced it with RabbitMQ Time-To-Live (TTL) queues. Now, when a delivery fails, it gets published to a temporary "waiting" queue with a TTL matching the backoff delay. When it naturally expires, Dead Letter routing pushes it to an active retry queue. This turns retries into a fully event-driven architecture with zero database polling overhead.
 
 ## 27. Tiered Rate Limiting
 I implemented express-rate-limit with two distinct strategies. There’s a loose global limit to prevent general resource exhaustion, and a much stricter "Tight Gate" on the webhook ingestion endpoints. This specifically protects the database and RabbitMQ from being flooded by a malfunctioning or malicious external sender before the request even hits our business logic.
@@ -95,3 +95,6 @@ I didn't just rely on Docker's restart policy. I added a /health endpoint that a
 
 ## 32. Manual "Kill Switch" for Pipelines
 I added an is_active toggle for pipelines. If a subscriber's server goes down and starts throwing thousands of errors, the user can temporarily "pause" the pipeline. The jobs will still be queued, but the worker will skip delivery until the toggle is flipped back. This prevents our retry queue from being flooded with doomed attempts and saves server resources during external outages.
+
+## 33. Dedicated Workers for Separation of Concerns
+To prevent failed jobs from clogging up the pipeline for new events (Head-of-Line blocking), I split the worker into two distinct roles. Instead of maintaining two separate codebases, I used a `WORKER_TYPE` environment variable in a single script. Now we can run `WORKER_TYPE=main` to process fresh jobs, and `WORKER_TYPE=retry` in a separate container for delayed attempts. This lets us scale independently—we can spin up multiple main workers to handle traffic spikes in Docker, while keeping just one lightweight worker solely for retries.
