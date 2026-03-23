@@ -12,8 +12,9 @@ The core purpose of this service is to ensure heavy or unpredictable webhook pay
 * **Asynchronous Processing:** Webhooks are queued immediately in PostgreSQL & RabbitMQ.
 * **Dynamic Pipelines:** Define custom data transformations (e.g., Currency Conversion, Amount Filtering).
 * **Resiliency (Retry Logic):** Failed webhook deliveries to subscribers are picked up by a dedicated retry worker with exponential backoff.
+* **Disaster Recovery (Sweep Worker):** A secondary polling mechanism recovers stalled jobs if the message broker crashes, guaranteeing zero data loss.
 * **Containerized:** Instant setup via Docker Compose.
-* **Clean Architecture:** Separation of Concerns ensuring code maintainability and testability.
+* **Clean Architecture:** Strict Separation of Concerns (SRP) ensuring code maintainability and testability for independent scaling.
 
 ---
 
@@ -55,6 +56,12 @@ You only need to have **Docker** and **Docker Compose** installed on your machin
    You should see 5 active containers (`db`, `rabbitmq`, `api`, `worker-main`, `worker-retry`).
 
 The API is now running on: **http://localhost:3001**
+
+### Worker Subsystems
+This application operates using three specialized background routines:
+1. **Main Worker:** Consumes real-time webhooks, runs the pipeline actions (Data filters, formatting, etc.), and attempts the first external HTTP delivery.
+2. **Retry Worker:** Listens to RabbitMQ's Dead Letter Exchange (DLX). If a subscriber's server is down, this worker handles the Exponential Backoff retries over time.
+3. **Sweep Worker:** A crontab disaster recovery mechanism that queries PostgreSQL every 5 minutes to rescue and re-queue webhooks that stalled due to sudden infrastructure crashes.
 
 ### Running Tests
 To run the automated test suite locally:

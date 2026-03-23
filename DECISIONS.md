@@ -101,3 +101,12 @@ To prevent failed jobs from clogging up the pipeline for new events (Head-of-Lin
 
 ## 34. SSRF Protection for Subscriber Deliveries
 Since users provide the subscriber URLs, the worker was vulnerable to Server-Side Request Forgery (SSRF). I added a validation layer in the delivery logic that resolves the hostname and blocks any requests to private IP ranges (127.0.0.1, 192.168.x.x, etc.) or reserved cloud metadata IPs. This ensures the worker can't be used as a proxy to attack our internal database or the host's infrastructure.
+
+## 35. Sweep Worker for Disaster Recovery (Transactional Outbox Pattern)
+While RabbitMQ handles the happy path exceptionally well, a catastrophic broker crash mid-flight could leave jobs stuck in a pending state in PostgreSQL. Instead of merging polling logic into the Main/Retry workers, I introduced a dedicated Sweep Worker. It runs every 5 minutes and strictly queries for pending jobs older than 15 minutes, pushing them back to the queue. This represents a lightweight Transactional Outbox pattern that guarantees zero data loss without hammering the database during normal traffic.
+
+## 36. Processing State to Prevent Race Conditions
+To safely enable database polling alongside RabbitMQ without causing double-processing, I added a processing state to the Jobs table. The moment the Main worker pulls a message from the queue, it synchronously updates the database state to processing. Because the Sweep Worker only looks for stalled pending records, it completely ignores active jobs, eliminating race conditions entirely.
+
+## 37. Strict Single Responsibility Principle in Workers
+Initially, the different worker logics (handling actions, polling databases, making HTTP deliveries) were somewhat coupled. I refactored the worker topology to strictly adhere to SRP. Now, the codebase is split into three decoupled components: Main (pipeline actions), Retry (delayed external HTTP requests + backoff), and Sweep (polling recovery). Each has its own dedicated consumer and processor file. This makes testing easier and prevents an SSRF delivery bug from crashing the main pipeline execution loop.
