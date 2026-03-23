@@ -10,6 +10,12 @@ export interface Pipeline {
   updatedAt: Date;
 }
 
+export interface ActionResult {
+  filtered: boolean;
+  filterReason?: string;
+  data?: Record<string, unknown>;
+}
+
 export interface PipelineAction {
   id: string;
   pipelineId: string;

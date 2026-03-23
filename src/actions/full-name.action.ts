@@ -1,8 +1,10 @@
+import { ActionResult } from '../core/types';
+
 export const fullNameAction = {
   async execute(
     payload: Record<string, unknown>,
     config: Record<string, unknown>
-  ): Promise<Record<string, unknown>> {
+  ): Promise<ActionResult> {
     const firstName = payload[config.firstNameField as string ?? 'firstName'] as string;
     const lastName = payload[config.lastNameField as string ?? 'lastName'] as string;
 
@@ -11,8 +13,11 @@ export const fullNameAction = {
     }
 
     return {
-      ...payload,
-      fullName: `${firstName} ${lastName}`,
+      filtered: false,
+      data: {
+        ...payload,
+        fullName: `${firstName} ${lastName}`,
+      },
     };
   },
 };

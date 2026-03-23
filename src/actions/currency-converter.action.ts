@@ -1,3 +1,5 @@
+import { ActionResult } from '../core/types';
+
 interface RateCache {
   rates: Record<string, number>;
   cachedAt: number;
@@ -36,7 +38,7 @@ export const currencyConverterAction = {
   async execute(
     payload: Record<string, unknown>,
     config: Record<string, unknown>
-  ): Promise<Record<string, unknown>> {
+  ): Promise<ActionResult> {
     const amount = payload[config.amountField as string ?? 'amount'] as number;
     const fromCurrency = (payload[config.currencyField as string ?? 'currency'] as string)?.toUpperCase();
 
@@ -50,10 +52,13 @@ export const currencyConverterAction = {
 
     if (fromCurrency === 'USD') {
       return {
-        ...payload,
-        amountInUSD: amount,
-        originalAmount: amount,
-        originalCurrency: fromCurrency,
+        filtered: false,
+        data: {
+          ...payload,
+          amountInUSD: amount,
+          originalAmount: amount,
+          originalCurrency: fromCurrency,
+        }
       };
     }
 
@@ -67,10 +72,13 @@ export const currencyConverterAction = {
     const amountInUSD = parseFloat((amount / rate).toFixed(2));
 
     return {
-      ...payload,
-      amountInUSD,
-      originalAmount: amount,
-      originalCurrency: fromCurrency,
+      filtered: false,
+      data: {
+        ...payload,
+        amountInUSD,
+        originalAmount: amount,
+        originalCurrency: fromCurrency,
+      }
     };
   },
 };

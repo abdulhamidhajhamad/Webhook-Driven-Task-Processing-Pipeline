@@ -1,12 +1,13 @@
 import { fullNameAction } from './full-name.action';
 import { currencyConverterAction } from './currency-converter.action';
 import { amountFilterAction } from './amount-filter.action';
+import { ActionResult } from '../core/types';
 
-type ActionHandler = {
+export type ActionHandler = {
   execute(
     payload: Record<string, unknown>,
     config: Record<string, unknown>
-  ): Promise<Record<string, unknown> | null>;
+  ): Promise<ActionResult>;
 };
 
 export const actions: Record<string, ActionHandler> = {
