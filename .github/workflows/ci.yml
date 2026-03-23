@@ -1,0 +1,69 @@
+name: CI/CD Pipeline
+
+on:
+  push:
+    branches: [ "main", "master" ]
+  pull_request:
+    branches: [ "main", "master" ]
+
+jobs:
+  build-and-test:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      - name: Install Dependencies
+        run: npm ci
+
+      - name: Run Type Check & Build
+        run: npm run build
+
+      - name: Run Unit Tests
+        run: npm run test
+
+  docker-check:
+    runs-on: ubuntu-latest
+    needs: build-and-test 
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Create fully functional .env file from Secrets
+        run: |
+          touch .env
+          echo "POSTGRES_USER=${{ secrets.POSTGRES_USER }}" >> .env
+          echo "POSTGRES_PASSWORD=${{ secrets.POSTGRES_PASSWORD }}" >> .env
+          echo "POSTGRES_DB=${{ secrets.POSTGRES_DB }}" >> .env
+          echo "DATABASE_URL=${{ secrets.DATABASE_URL }}" >> .env
+          echo "RABBITMQ_URL=${{ secrets.RABBITMQ_URL }}" >> .env
+
+      - name: Verify Docker Compose Configuration
+        run: docker compose config
+
+      - name: Build Main Application Docker Image
+        run: docker compose build
+
+      - name: Test Infrastructure (Postgres, RabbitMQ, API, Workers)
+        run: |
+          docker compose up -d
+          # Wait a few seconds for services to properly initialize
+          sleep 15
+          # Confirm all expected containers are running (5 expected: db, rabbitmq, api, worker-main, worker-retry)
+          docker ps -a
+          # Optional: fetch logs if something fails for debugging
+          docker compose logs api
+          docker compose logs worker-main
+      
+      - name: Teardown
+        run: docker compose down -v
+
+
+      - name: Build Main Application Docker Image
+        run: docker build -t task-pipeline-app .
