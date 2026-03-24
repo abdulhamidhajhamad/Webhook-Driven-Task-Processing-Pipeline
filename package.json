@@ -3,13 +3,16 @@
   "version": "1.0.0",
   "description": "",
   "main": "index.js",
-"scripts": {
-  "build": "tsc",
-  "dev": "tsx watch src/api/server.ts",
-  "worker": "tsx watch src/worker/worker.ts",
-  "start": "node dist/api/server.js",
-  "test": "jest"
-},
+  "scripts": {
+    "build": "tsc",
+    "swagger": "tsx swagger.ts",
+    "predev": "npm run swagger",
+    "dev": "tsx watch src/api/server.ts",
+    "worker": "tsx watch src/worker/worker.ts",
+    "lint": "eslint .",
+    "start": "node dist/api/server.js",
+    "test": "vitest run"
+  },
   "repository": {
     "type": "git",
     "url": "git+https://github.com/abdulhamidhajhamad/Webhook-Driven-Task-Processing-Pipeline.git"
@@ -23,15 +26,30 @@
   },
   "homepage": "https://github.com/abdulhamidhajhamad/Webhook-Driven-Task-Processing-Pipeline#readme",
   "dependencies": {
-    "express": "^5.2.1"
+    "amqplib": "^0.10.9",
+    "dotenv": "^17.3.1",
+    "express": "^5.2.1",
+    "express-rate-limit": "^8.3.1",
+    "pg": "^8.20.0",
+    "raw-body": "^3.0.2",
+    "swagger-ui-express": "^5.0.1"
   },
   "devDependencies": {
+    "@eslint/js": "^10.0.1",
+    "@types/amqplib": "^0.10.8",
     "@types/express": "^5.0.6",
+    "@types/express-rate-limit": "^5.1.3",
     "@types/node": "^25.5.0",
     "@types/pg": "^8.18.0",
-    "jest": "^30.3.0",
-    "ts-jest": "^29.4.6",
+    "@types/raw-body": "^2.1.4",
+    "@types/swagger-ui-express": "^4.1.8",
+    "@typescript-eslint/eslint-plugin": "^8.57.2",
+    "@typescript-eslint/parser": "^8.57.2",
+    "eslint": "^10.1.0",
+    "swagger-autogen": "^2.23.7",
     "tsx": "^4.21.0",
-    "typescript": "^5.9.3"
+    "typescript": "^5.9.3",
+    "typescript-eslint": "^8.57.2",
+    "vitest": "^4.1.1"
   }
 }

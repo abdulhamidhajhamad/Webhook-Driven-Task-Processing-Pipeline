@@ -1,7 +1,9 @@
 FROM node:20-alpine
 WORKDIR /app
 COPY package*.json ./
-RUN npm ci
+RUN npm install
 COPY . .
-RUN npm run build
+RUN npx tsc
+RUN cp -r src/core/db/migrations dist/core/db/
+EXPOSE 3000
 CMD ["node", "dist/api/server.js"]

@@ -7,5 +7,13 @@
     "strict": true,
     "esModuleInterop": true,
     "resolveJsonModule": true
-  }
+  },
+  "exclude": [
+    "swagger.ts",
+    "swagger-output.json",
+    "node_modules",
+    "**/*.test.ts",
+    "tests/**/*",
+    "vitest.config.ts"
+  ]
 }
