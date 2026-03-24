@@ -69,6 +69,19 @@ services:
     env_file:
       - .env
 
+  worker-sweep:
+    build: .
+    command: node dist/worker/worker.js
+    depends_on:
+      db:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+    environment:
+      - WORKER_TYPE=sweep
+    env_file:
+      - .env
+
 volumes:
   pgdata:
   rabbitmqdata:
