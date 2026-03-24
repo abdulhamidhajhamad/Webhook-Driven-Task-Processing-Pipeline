@@ -12,6 +12,8 @@
     "swagger.ts",
     "swagger-output.json",
     "node_modules",
-    "**/*.test.ts"
+    "**/*.test.ts",
+    "tests/**/*",
+    "vitest.config.ts"
   ]
 }
