@@ -4,6 +4,7 @@ import { jobRepository } from '../../../src/modules/jobs/job.repository';
 import { pipelineRepository } from '../../../src/modules/pipelines/pipeline.repository';
 import { deliverWithRetry } from '../../../src/worker/processors/retry.processor';
 import { actions } from '../../../src/actions';
+import { isSafeUrl } from '../../../src/core/utils/url-safety';
 
 vi.mock('../../../src/modules/jobs/job.repository', () => ({
   jobRepository: {
@@ -30,6 +31,10 @@ vi.mock('../../../src/actions', () => ({
       execute: vi.fn(),
     },
   },
+}));
+
+vi.mock('../../../src/core/utils/url-safety', () => ({
+  isSafeUrl: vi.fn().mockResolvedValue(true),
 }));
 
 describe('Main Processor', () => {
