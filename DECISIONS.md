@@ -110,3 +110,6 @@ To safely enable database polling alongside RabbitMQ without causing double-proc
 
 ## 37. Strict Single Responsibility Principle in Workers
 Initially, the different worker logics (handling actions, polling databases, making HTTP deliveries) were somewhat coupled. I refactored the worker topology to strictly adhere to SRP. Now, the codebase is split into three decoupled components: Main (pipeline actions), Retry (delayed external HTTP requests + backoff), and Sweep (polling recovery). Each has its own dedicated consumer and processor file. This makes testing easier and prevents an SSRF delivery bug from crashing the main pipeline execution loop.
+
+## 38. RabbitMQ over Redis for Guaranteed Delivery
+While Redis (via libraries like BullMQ) is popular for background jobs, it is primarily an in-memory data store. If a Redis server crashes before persisting to disk, jobs can be permanently lost. I specifically chose RabbitMQ because it is a true Message Broker designed for reliability. By enabling **Publisher Confirms**, **Durable Queues**, and **Persistent Messages**, RabbitMQ guarantees that once the API accepts a webhook, the job is safely written to disk and will not be lost even in the event of a total broker restart. This perfectly aligns with the system's core requirement of Zero Data Loss.
