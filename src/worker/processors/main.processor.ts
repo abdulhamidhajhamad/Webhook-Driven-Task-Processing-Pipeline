@@ -3,6 +3,7 @@ import { pipelineRepository } from '../../modules/pipelines/pipeline.repository'
 import { actions } from '../../actions';
 import { ActionLog, ActionType } from '../../core/types';
 import { deliverWithRetry } from './retry.processor';
+import { isSafeUrl } from '../../core/utils/url-safety';
 
 class PipelineExecutor {
   static async executeActions(
@@ -114,6 +115,11 @@ async function deliverToSubscribers(
   payload: Record<string, unknown>
 ): Promise<void> {
   for (const subscriber of subscribers) {
+    const isSafe = await isSafeUrl(subscriber.url);
+    if (!isSafe) {
+      console.error(`Blocked unsafe URL for delivery: ${subscriber.url}`);
+      continue;
+    }
     await deliverWithRetry(jobId, subscriber, payload, 0);
   }
 }

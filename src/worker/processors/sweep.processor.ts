@@ -1,5 +1,6 @@
 import { jobRepository } from '../../modules/jobs/job.repository';
 import { rabbitMQ } from '../../core/queue';
+import { isSafeUrl } from '../../core/utils/url-safety';
 
 export async function runSweepCycle(): Promise<void> {
   try {
