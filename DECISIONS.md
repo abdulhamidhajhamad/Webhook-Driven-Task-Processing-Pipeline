@@ -113,3 +113,9 @@ Initially, the different worker logics (handling actions, polling databases, mak
 
 ## 38. RabbitMQ over Redis for Guaranteed Delivery
 While Redis (via libraries like BullMQ) is popular for background jobs, it is primarily an in-memory data store. If a Redis server crashes before persisting to disk, jobs can be permanently lost. I specifically chose RabbitMQ because it is a true Message Broker designed for reliability. By enabling **Publisher Confirms**, **Durable Queues**, and **Persistent Messages**, RabbitMQ guarantees that once the API accepts a webhook, the job is safely written to disk and will not be lost even in the event of a total broker restart. This perfectly aligns with the system's core requirement of Zero Data Loss.
+
+## 39. Automated Code Quality Enforcement in CI/CD
+To maintain a clean and consistent codebase as the project grows, I integrated ESLint directly into the GitHub Actions pipeline. Instead of relying on developers to manually run the linter before pushing, the CI pipeline enforces it automatically, failing the build if any unresolved warnings or errors exist. This keeps the codebase free of unused variables and stylistic inconsistencies without manual oversight.
+
+## 40. Proactive Security Auditing
+To prevent known vulnerabilities from sneaking into production through third-party dependencies, I added a proactive security scan (`npm audit`) to the CI pipeline. By enforcing this before the Docker images are even built, the pipeline acts as an automated gatekeeper, immediately blocking any PR or commit that introduces high or critical severity vulnerabilities.

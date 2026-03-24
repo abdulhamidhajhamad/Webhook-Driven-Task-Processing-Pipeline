@@ -22,6 +22,12 @@ jobs:
       - name: Install Dependencies
         run: npm ci
 
+      - name: Run Security Audit
+        run: npm audit --audit-level=high
+
+      - name: Run Linter
+        run: npm run lint
+
       - name: Run Type Check & Build
         run: npm run build
 
@@ -43,27 +49,42 @@ jobs:
           echo "POSTGRES_DB=${{ secrets.POSTGRES_DB }}" >> .env
           echo "DATABASE_URL=${{ secrets.DATABASE_URL }}" >> .env
           echo "RABBITMQ_URL=${{ secrets.RABBITMQ_URL }}" >> .env
+          echo "NODE_ENV=test" >> .env
+          echo "PORT=3001" >> .env
 
       - name: Verify Docker Compose Configuration
         run: docker compose config
 
-      - name: Build Main Application Docker Image
+      - name: Build Docker Images
         run: docker compose build
 
       - name: Test Infrastructure (Postgres, RabbitMQ, API, Workers)
         run: |
           docker compose up -d
-          # Wait a few seconds for services to properly initialize
+          # Wait for services to initialize
           sleep 15
-          # Confirm all expected containers are running (5 expected: db, rabbitmq, api, worker-main, worker-retry)
+          
+          echo "--- Container Status ---"
           docker ps -a
-          # Optional: fetch logs if something fails for debugging
+          
+          # Check for any crashed containers
+          CRASHED=$(docker ps -a --filter "status=exited" -q)
+          if [ ! -z "$CRASHED" ]; then
+            echo "Error: The following containers crashed:"
+            docker ps -a --filter "status=exited"
+            echo "--- Container Logs ---"
+            docker compose logs
+            exit 1
+          fi
+
+      - name: Fetch Container Logs
+        if: always()
+        run: |
           docker compose logs api
           docker compose logs worker-main
+          docker compose logs worker-retry
+          docker compose logs worker-sweep
       
       - name: Teardown
+        if: always()
         run: docker compose down -v
-
-
-      - name: Build Main Application Docker Image
-        run: docker build -t task-pipeline-app .

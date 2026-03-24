@@ -18,7 +18,7 @@ try {
   // In development, it's in the project root. In dist, it's relative to dist/api/app.js
   const swaggerPath = path.join(process.cwd(), 'swagger-output.json');
   swaggerDocument = JSON.parse(fs.readFileSync(swaggerPath, 'utf8'));
-} catch (err) {
+} catch {
   console.log('Swagger file not found, please run `npm run swagger`');
 }
 
